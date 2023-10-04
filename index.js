@@ -27,7 +27,7 @@ app.listen(PORT, function() {
 
 //Get all products from the database
 app.get('/getAllProducts', (req, res) => {
-    db.query("SELECT * from product;", (error, data) => {
+    db.query("SELECT * FROM product;", (error, data) => {
         if(error) {
             return res.status(500).json({ status: "ERROR", error});
         }
@@ -41,7 +41,7 @@ app.post("/createUser", (req, res, next) => {
         if(error) {
             return res.status(500).json({ status: "ERROR", error});
         }
-        return res.json({ status: "Success" });
+        return res.json({ status: true });
     });
 });
 
@@ -51,18 +51,84 @@ app.post("/addProduct", (req, res, next) => {
             if(error) {
                 return res.status(500).json({ status: "ERROR", error});
             }
-            return res.json({ status: "Success" });
+            return res.json({ status: true});
         });
 });
 
+// Récupération d'un utilisateur
 app.get("/getUserByMailAndPassword", (req, res, next) => {
     db.query("SELECT * FROM user WHERE mail LIKE ? AND password LIKE ?;", [req.body.mail, req.body.password], (error, result) => {
         if(error) {
             return res.status(500).json({ status: "ERROR", error});
         }
         if(result.length = 1){
-            console.log(result);
+            return res.json({ status: true });
+        }
+        else {
+            return res.json({ status: false });
         }
     });
 });
 
+
+// Récup user par son ID
+app.get("/getUserByID", (req, res, next) => {
+    db.query("SELECT u.user_id, u.first_name, u.last_name, u.address, u.mail, u.city, u.postal_code FROM user u WHERE user_id LIKE ?", req.body.id_user, (error, result) => {
+        if(error) {
+            return res.status(500).json({ status: "ERROR", error});
+        }
+        if(result.length = 1){
+            return res.json(result);
+        }
+    });
+});
+
+// Récupération des commandes pour un utilisateur
+app.get("/getOrdersByUser", (req, res, next) => {
+    db.query("SELECT * FROM order WHERE user_id = ?;", req.body.user_id, (error, result) => {
+        if(error) {
+            return res.status(500).json({ status: "ERROR", error});
+        }
+        return res.json(data);
+    });
+});
+
+
+
+app.post("/createOrderForUser", (req, res, next) => {
+    let sumOrder = 0;
+    if(req.body.products.length > 1){
+        for(let i = 0; i < req.body.products.length; i++){
+            sumOrder += req.body.products[i].quantity * req.body.products[i].price;
+        }
+    } else {
+        sumOrder = req.body.products[0].quantity * req.body.products[0].price;
+    }
+
+    let lastID;
+    db.query("INSERT INTO `order` (user_id, total_amount, id_order_status) VALUES (?, ?, ?);", [req.body.user_id, sumOrder, 1], (error, result) => {
+        if(error) {
+            return res.status(500).json({ status: "ERROR", error});
+        }
+        lastID = result.insertId;
+        if(req.body.products.length > 1){
+            console.log("SuuS");
+            for(let i = 0; i < req.body.products.length; i++){
+                db.query("INSERT INTO order_line (id_order, id_product, quantity) VALUES (?, ?, ?);", [lastID, req.body.products[i].id_product, req.body.products[i].quantity], (error, result) => {
+                    if(error) {
+                        return res.status(500).json({ status: "ERROR", error});
+                    }
+                    return res.json({ status: true });
+                });
+            }
+        } else {
+            console.log("JaaJ");
+            db.query("INSERT INTO order_line (id_order, id_product, quantity) VALUES (?, ?, ?);", [lastID, req.body.products[0].id_product, req.body.products[0].quantity], (error, result) => {
+                if(error) {
+                    return res.status(500).json({ status: "ERROR", error});
+                }
+                return res.json({ status: true });
+            });
+        }
+    });
+});
